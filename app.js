@@ -286,10 +286,12 @@
   }
 
   // ---------- Formatting ----------
-  function formatMoney(n, currency) {
+  // No currency unit suffix: a stock can be denominated in KRW, USD, JPY, etc.,
+  // and the currency is already shown via the stock's name/settings, so a hardcoded
+  // suffix here would be wrong for anything that isn't KRW.
+  function formatMoney(n) {
     if (n == null || !isFinite(n)) return '-';
-    const rounded = Math.round(n).toLocaleString('ko-KR');
-    return (currency === 'KRW' || !currency) ? rounded + '원' : rounded + ' ' + currency;
+    return Math.round(n).toLocaleString('ko-KR');
   }
 
   function formatPrice(n) {
@@ -538,7 +540,7 @@
       grid.className = 'stock-card-grid';
       grid.appendChild(cardItem('평균단가', formatPrice(derived.avgPrice)));
       grid.appendChild(cardItem('보유수량', formatQty(derived.holdingQty)));
-      grid.appendChild(cardItem('매입금액', formatMoney(derived.costBasis, stock.currency)));
+      grid.appendChild(cardItem('매입금액', formatMoney(derived.costBasis)));
       card.appendChild(grid);
 
       el.stockList.appendChild(card);
@@ -552,7 +554,7 @@
       if (converted == null) { missingCount++; return; }
       total += converted;
     });
-    el.totalCostSum.textContent = formatMoney(total, displayCurrency);
+    el.totalCostSum.textContent = formatMoney(total);
 
     el.totalMissingNote.hidden = missingCount === 0;
     if (missingCount > 0) {
@@ -574,7 +576,7 @@
         nameSpan.textContent = r.name;
         const costSpan = document.createElement('span');
         costSpan.className = 'mono';
-        costSpan.textContent = formatMoney(r.cost, r.currency);
+        costSpan.textContent = formatMoney(r.cost);
         row.appendChild(nameSpan);
         row.appendChild(costSpan);
         el.totalDetailRows.appendChild(row);
@@ -645,7 +647,7 @@
 
     el.dAvgPrice.textContent = formatPrice(derived.avgPrice);
     el.dQty.textContent = formatQty(derived.holdingQty);
-    el.dCostBasis.textContent = formatMoney(derived.costBasis, stock.currency);
+    el.dCostBasis.textContent = formatMoney(derived.costBasis);
 
     const currentPrice = num(el.inputCurrentPrice.value);
     const atr = num(el.inputAtr.value);
@@ -654,7 +656,7 @@
       const evalValue = currentPrice * derived.holdingQty;
       const pnl = evalValue - derived.costBasis;
       const pct = derived.avgPrice > 0 ? (currentPrice - derived.avgPrice) / derived.avgPrice * 100 : null;
-      el.dPnl.textContent = `${formatMoney(pnl, stock.currency)} (${formatPercent(pct)})`;
+      el.dPnl.textContent = `${formatMoney(pnl)} (${formatPercent(pct)})`;
       el.dPnl.className = 'summary-value mono ' + pnlClass(pnl);
     } else {
       el.dPnl.textContent = '현재가 미입력';
@@ -726,7 +728,7 @@
       if (realizedPnl == null) {
         tdPnl.textContent = '현재가 미입력';
       } else {
-        tdPnl.textContent = (realizedPnl >= 0 ? '+' : '') + formatMoney(realizedPnl, null).replace('원', '') + '원';
+        tdPnl.textContent = (realizedPnl >= 0 ? '+' : '') + formatMoney(realizedPnl);
         tdPnl.className = pnlClass(realizedPnl);
       }
       tr.appendChild(tdPct);
@@ -790,7 +792,7 @@
       if (rec.realizedPnl == null) {
         tdPnl.textContent = '-';
       } else {
-        tdPnl.textContent = (rec.realizedPnl >= 0 ? '+' : '') + formatMoney(rec.realizedPnl, stock.currency);
+        tdPnl.textContent = (rec.realizedPnl >= 0 ? '+' : '') + formatMoney(rec.realizedPnl);
         tdPnl.className = pnlClass(rec.realizedPnl);
       }
       tr.appendChild(tdPnl);
