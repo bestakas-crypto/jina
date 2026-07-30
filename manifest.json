@@ -1,6 +1,6 @@
 {
-  "name": "분할매매 의사결정 보조 도구",
-  "short_name": "분할매매",
+  "name": "Jina",
+  "short_name": "Jina",
   "description": "ATR 기반 분할매수·분할매도 의사결정 보조 도구",
   "start_url": "./index.html",
   "scope": "./",

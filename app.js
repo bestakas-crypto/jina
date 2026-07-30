@@ -441,7 +441,7 @@
     el.viewList.hidden = false;
     el.viewDetail.hidden = true;
     el.stickyActions.hidden = true;
-    el.headerTitle.textContent = '분할매매 트래커';
+    el.headerTitle.textContent = 'Jina';
     renderList();
   }
 
