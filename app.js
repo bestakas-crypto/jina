@@ -2,6 +2,7 @@
   'use strict';
 
   const STORAGE_KEY = 'stock-portfolio';
+  const DEPOSIT_STORAGE_KEY = 'cash-deposits';
   const FX_STORAGE_KEY = 'fx-rates';
   const FX_API_URL = 'https://api.frankfurter.dev/v1/latest';
   const FX_DISPLAY_CURRENCIES = ['KRW', 'USD', 'JPY'];
@@ -12,6 +13,7 @@
   const PARTIAL_SELL_PRESETS = [10, 20, 30, 50];
 
   let portfolio = [];
+  let deposits = []; // { id, accountName, amount, currency }
   let fxRates = null; // { rates: { KRW: 1, USD: 1350.5, ... }, updatedAt, source, displayCurrency }
   let currentStockId = null;
   let showAllTx = false;
@@ -19,6 +21,7 @@
   let showTotalDetail = false;
   let txModalMode = null; // 'buy' | 'sell'
   let editingTxId = null;
+  let editingDepositId = null;
   let confirmCallback = null;
 
   // ---------- ID / date helpers ----------
@@ -59,6 +62,30 @@
     return portfolio.find((s) => s.id === id) || null;
   }
 
+  // ---------- Deposits (cash) ----------
+  function loadDeposits() {
+    const raw = localStorage.getItem(DEPOSIT_STORAGE_KEY);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveDeposits() {
+    localStorage.setItem(DEPOSIT_STORAGE_KEY, JSON.stringify(deposits));
+  }
+
+  function getDeposit(id) {
+    return deposits.find((d) => d.id === id) || null;
+  }
+
+  function createDeposit(accountName, amount, currency) {
+    return { id: genId(), accountName, amount, currency: currency || 'KRW' };
+  }
+
   // ---------- FX rates (manual + best-effort auto fetch) ----------
   function defaultFxRates() {
     return { rates: { KRW: 1 }, updatedAt: null, source: null, displayCurrency: 'KRW' };
@@ -96,6 +123,7 @@
   function currenciesInUse() {
     const set = new Set(FX_DISPLAY_CURRENCIES);
     portfolio.forEach((s) => { if (s.currency) set.add(s.currency); });
+    deposits.forEach((d) => { if (d.currency) set.add(d.currency); });
     set.delete('KRW');
     return Array.from(set);
   }
@@ -327,14 +355,20 @@
 
     el.viewList = document.getElementById('view-list');
     el.btnAddStock = document.getElementById('btn-add-stock');
+    el.btnAddDeposit = document.getElementById('btn-add-deposit');
     el.btnToggleTotal = document.getElementById('btn-toggle-total');
     el.totalCostSum = document.getElementById('total-cost-sum');
     el.totalEvalSum = document.getElementById('total-eval-sum');
+    el.totalDepositSum = document.getElementById('total-deposit-sum');
+    el.totalAssetSum = document.getElementById('total-asset-sum');
+    el.totalPnlSum = document.getElementById('total-pnl-sum');
     el.totalChevron = document.getElementById('total-chevron');
     el.totalSummaryDetail = document.getElementById('total-summary-detail');
     el.totalDetailRows = document.getElementById('total-detail-rows');
+    el.totalDepositDetailRows = document.getElementById('total-deposit-detail-rows');
     el.totalMissingNote = document.getElementById('total-missing-note');
     el.totalEvalMissingNote = document.getElementById('total-eval-missing-note');
+    el.totalDepositMissingNote = document.getElementById('total-deposit-missing-note');
     el.currencySwitch = document.getElementById('currency-switch');
     el.fxStatus = document.getElementById('fx-status');
     el.fxRateRows = document.getElementById('fx-rate-rows');
@@ -342,6 +376,8 @@
     el.btnFxSave = document.getElementById('btn-fx-save');
     el.stockList = document.getElementById('stock-list');
     el.stockListEmpty = document.getElementById('stock-list-empty');
+    el.depositList = document.getElementById('deposit-list');
+    el.depositListEmpty = document.getElementById('deposit-list-empty');
 
     el.viewDetail = document.getElementById('view-detail');
     el.dAvgPrice = document.getElementById('d-avg-price');
@@ -402,6 +438,15 @@
     el.addStockCurrency = document.getElementById('add-stock-currency');
     el.btnAddStockCancel = document.getElementById('btn-add-stock-cancel');
     el.btnAddStockSave = document.getElementById('btn-add-stock-save');
+
+    el.modalDeposit = document.getElementById('modal-deposit');
+    el.modalDepositTitle = document.getElementById('modal-deposit-title');
+    el.depositAccountName = document.getElementById('deposit-account-name');
+    el.depositAmount = document.getElementById('deposit-amount');
+    el.depositCurrency = document.getElementById('deposit-currency');
+    el.btnDepositDelete = document.getElementById('btn-deposit-delete');
+    el.btnDepositCancel = document.getElementById('btn-deposit-cancel');
+    el.btnDepositSave = document.getElementById('btn-deposit-save');
 
     el.modalConfirm = document.getElementById('modal-confirm');
     el.confirmMessage = document.getElementById('confirm-message');
@@ -553,6 +598,8 @@
       el.stockList.appendChild(card);
     });
 
+    renderDepositList();
+
     const displayCurrency = fxRates.displayCurrency;
     let total = 0;
     let missingCount = 0;
@@ -585,6 +632,40 @@
     el.totalEvalMissingNote.hidden = evalNoteParts.length === 0;
     if (evalNoteParts.length > 0) {
       el.totalEvalMissingNote.textContent = `${evalNoteParts.join(', ')} 종목은 평가금액 합계에서 제외되었습니다.`;
+    }
+
+    // 예금총액: 등록된 예금을 표시통화로 환산해서 합산. 환율 정보 없는 통화는 제외.
+    let totalDeposit = 0;
+    let depositMissingFx = 0;
+    deposits.forEach((d) => {
+      const converted = convertAmount(d.amount, d.currency, displayCurrency);
+      if (converted == null) { depositMissingFx++; } else { totalDeposit += converted; }
+    });
+    const depositKnownCount = deposits.length - depositMissingFx;
+    const depositShowValue = deposits.length === 0 || depositKnownCount > 0;
+    el.totalDepositSum.textContent = depositShowValue ? formatMoney(totalDeposit) : '-';
+
+    el.totalDepositMissingNote.hidden = depositMissingFx === 0;
+    if (depositMissingFx > 0) {
+      el.totalDepositMissingNote.textContent = `환율 정보가 없는 예금 ${depositMissingFx}건은 예금총액 합계에서 제외되었습니다.`;
+    }
+
+    // 총자산금액 = 평가금액(알 수 있는 만큼) + 예금총액(알 수 있는 만큼)
+    const evalContribution = evalKnownCount > 0 ? totalEval : 0;
+    const depositContribution = depositShowValue ? totalDeposit : 0;
+    const totalAsset = evalContribution + depositContribution;
+    el.totalAssetSum.textContent = formatMoney(totalAsset);
+
+    // 손익 = 평가금액 - 매입금액. 평가금액을 전혀 알 수 없거나 매입금액이 0이면
+    // 오해를 부르는 숫자(예: "-100%")를 보여주지 않고 '-' 처리.
+    if (evalKnownCount > 0 && total > 0) {
+      const pnlAmount = totalEval - total;
+      const pnlPct = (pnlAmount / total) * 100;
+      el.totalPnlSum.textContent = `${formatMoney(pnlAmount)} (${formatPercent(pnlPct)})`;
+      el.totalPnlSum.className = 'mono ' + pnlClass(pnlAmount);
+    } else {
+      el.totalPnlSum.textContent = '-';
+      el.totalPnlSum.className = 'mono';
     }
 
     document.querySelectorAll('.currency-pill').forEach((btn) => {
@@ -628,8 +709,91 @@
       if (detailRows.length === 0) {
         el.totalDetailRows.textContent = '등록된 종목이 없습니다.';
       }
+
+      el.totalDepositDetailRows.innerHTML = '';
+      deposits.forEach((d) => {
+        const item = document.createElement('div');
+        item.className = 'total-detail-item';
+
+        const row = document.createElement('div');
+        row.className = 'total-detail-row';
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = d.accountName;
+        const amountWrap = document.createElement('span');
+        const badge = document.createElement('span');
+        badge.className = 'currency-badge';
+        badge.textContent = d.currency;
+        const amountSpan = document.createElement('span');
+        amountSpan.className = 'mono';
+        amountSpan.textContent = ' ' + formatMoney(d.amount);
+        amountWrap.appendChild(badge);
+        amountWrap.appendChild(amountSpan);
+        row.appendChild(nameSpan);
+        row.appendChild(amountWrap);
+        item.appendChild(row);
+
+        const convertedRow = document.createElement('div');
+        convertedRow.className = 'total-detail-eval-row';
+        const convertedAmount = convertAmount(d.amount, d.currency, displayCurrency);
+        if (convertedAmount == null) {
+          convertedRow.textContent = '환율 정보 없음';
+        } else if (d.currency === displayCurrency) {
+          convertedRow.textContent = '';
+        } else {
+          convertedRow.appendChild(document.createTextNode(`환산(${displayCurrency}) `));
+          const convertedSpan = document.createElement('span');
+          convertedSpan.className = 'mono';
+          convertedSpan.textContent = formatMoney(convertedAmount);
+          convertedRow.appendChild(convertedSpan);
+        }
+        item.appendChild(convertedRow);
+
+        el.totalDepositDetailRows.appendChild(item);
+      });
+
       renderFxSettings();
     }
+  }
+
+  function renderDepositList() {
+    el.depositList.innerHTML = '';
+    el.depositListEmpty.hidden = deposits.length > 0;
+
+    deposits.forEach((d) => {
+      const card = document.createElement('div');
+      card.className = 'deposit-card';
+      card.dataset.id = d.id;
+
+      const top = document.createElement('div');
+      top.className = 'deposit-card-top';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'deposit-card-name';
+      nameSpan.textContent = d.accountName;
+      top.appendChild(nameSpan);
+
+      const badge = document.createElement('span');
+      badge.className = 'currency-badge';
+      badge.textContent = d.currency;
+      top.appendChild(badge);
+
+      const menuBtn = document.createElement('button');
+      menuBtn.type = 'button';
+      menuBtn.className = 'deposit-card-menu';
+      menuBtn.dataset.id = d.id;
+      menuBtn.setAttribute('aria-label', '예금 수정');
+      menuBtn.textContent = '⋮';
+      top.appendChild(menuBtn);
+
+      card.appendChild(top);
+
+      const amountDiv = document.createElement('div');
+      amountDiv.className = 'deposit-card-amount mono';
+      amountDiv.textContent = formatMoney(d.amount);
+      card.appendChild(amountDiv);
+
+      el.depositList.appendChild(card);
+    });
   }
 
   function renderFxSettings() {
@@ -976,6 +1140,72 @@
     navigateToDetail(stock.id);
   }
 
+  // ---------- Deposit add / edit / delete ----------
+  function openAddDepositModal() {
+    editingDepositId = null;
+    el.modalDepositTitle.textContent = '예금 추가';
+    el.depositAccountName.value = '';
+    el.depositAmount.value = '';
+    el.depositCurrency.value = 'KRW';
+    el.btnDepositDelete.hidden = true;
+    el.modalDeposit.hidden = false;
+  }
+
+  function openEditDepositModal(depositId) {
+    const deposit = getDeposit(depositId);
+    if (!deposit) return;
+    editingDepositId = depositId;
+    el.modalDepositTitle.textContent = '예금 수정';
+    el.depositAccountName.value = deposit.accountName;
+    el.depositAmount.value = deposit.amount;
+    el.depositCurrency.value = deposit.currency;
+    el.btnDepositDelete.hidden = false;
+    el.modalDeposit.hidden = false;
+  }
+
+  function closeDepositModal() {
+    el.modalDeposit.hidden = true;
+    editingDepositId = null;
+  }
+
+  function handleDepositSave() {
+    const accountName = el.depositAccountName.value.trim();
+    const amount = num(el.depositAmount.value);
+    const currency = el.depositCurrency.value.trim() || 'KRW';
+
+    if (!accountName) { showToast('계좌명을 입력하세요.'); return; }
+    if (amount == null || amount < 0) { showToast('예금액을 올바르게 입력하세요.'); return; }
+
+    if (editingDepositId) {
+      const deposit = getDeposit(editingDepositId);
+      if (deposit) {
+        deposit.accountName = accountName;
+        deposit.amount = amount;
+        deposit.currency = currency;
+      }
+    } else {
+      deposits.push(createDeposit(accountName, amount, currency));
+    }
+
+    saveDeposits();
+    closeDepositModal();
+    renderList();
+    showToast('예금이 저장되었습니다.');
+  }
+
+  function handleDepositDelete() {
+    if (!editingDepositId) return;
+    const deposit = getDeposit(editingDepositId);
+    if (!deposit) return;
+    askConfirm(`'${deposit.accountName}' 예금을 삭제합니다. 이 작업은 되돌릴 수 없습니다.`, () => {
+      deposits = deposits.filter((d) => d.id !== editingDepositId);
+      saveDeposits();
+      closeDepositModal();
+      renderList();
+      showToast('예금이 삭제되었습니다.');
+    });
+  }
+
   function handleSaveSettings() {
     const stock = getStock(currentStockId);
     if (!stock) return;
@@ -1101,6 +1331,17 @@
     el.btnAddStockCancel.addEventListener('click', () => { el.modalAddStock.hidden = true; });
     el.btnAddStockSave.addEventListener('click', handleAddStockSave);
 
+    el.btnAddDeposit.addEventListener('click', openAddDepositModal);
+    el.btnDepositCancel.addEventListener('click', closeDepositModal);
+    el.btnDepositSave.addEventListener('click', handleDepositSave);
+    el.btnDepositDelete.addEventListener('click', handleDepositDelete);
+    el.modalDeposit.addEventListener('click', (e) => { if (e.target === el.modalDeposit) closeDepositModal(); });
+
+    el.depositList.addEventListener('click', (e) => {
+      const menuBtn = e.target.closest('.deposit-card-menu');
+      if (menuBtn) openEditDepositModal(menuBtn.dataset.id);
+    });
+
     el.btnToggleTotal.addEventListener('click', () => {
       showTotalDetail = !showTotalDetail;
       renderList();
@@ -1217,6 +1458,7 @@
   function init() {
     cacheDom();
     portfolio = loadPortfolio();
+    deposits = loadDeposits();
     fxRates = loadFxRates();
     bindEvents();
 

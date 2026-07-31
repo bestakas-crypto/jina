@@ -31,13 +31,17 @@
   <section id="view-list">
     <div class="list-toolbar">
       <button id="btn-add-stock" class="btn btn-primary">+ 종목 추가</button>
+      <button id="btn-add-deposit" class="btn btn-primary">+ 예금 추가</button>
     </div>
 
     <div class="total-summary-block">
       <button id="btn-toggle-total" class="total-summary-toggle">
         <div class="total-lines">
-          <div class="total-line">전체 매입금액 합계: <span id="total-cost-sum" class="mono">-</span></div>
-          <div class="total-line total-eval-line">총 주식평가금액: <span id="total-eval-sum" class="mono">-</span></div>
+          <div class="total-line">매입금액: <span id="total-cost-sum" class="mono">-</span></div>
+          <div class="total-line total-eval-line">평가금액: <span id="total-eval-sum" class="mono">-</span></div>
+          <div class="total-line total-eval-line">예금총액: <span id="total-deposit-sum" class="mono">-</span></div>
+          <div class="total-line total-highlight-line">총자산금액: <span id="total-asset-sum" class="mono">-</span></div>
+          <div class="total-line total-highlight-line">손익: <span id="total-pnl-sum" class="mono">-</span></div>
         </div>
         <span class="chevron" id="total-chevron">▾</span>
       </button>
@@ -48,9 +52,11 @@
       </div>
       <p class="total-missing-note" id="total-missing-note" hidden></p>
       <p class="total-missing-note" id="total-eval-missing-note" hidden></p>
+      <p class="total-missing-note" id="total-deposit-missing-note" hidden></p>
     </div>
     <div id="total-summary-detail" class="total-summary-detail" hidden>
       <div id="total-detail-rows"></div>
+      <div id="total-deposit-detail-rows"></div>
       <div class="fx-settings">
         <p class="fx-status" id="fx-status"></p>
         <div id="fx-rate-rows"></div>
@@ -63,6 +69,10 @@
 
     <div id="stock-list" class="stock-list"></div>
     <p id="stock-list-empty" class="empty-hint" hidden>등록된 종목이 없습니다. "+ 종목 추가"로 시작하세요.</p>
+
+    <h2 class="list-section-title">예금</h2>
+    <div id="deposit-list" class="deposit-list"></div>
+    <p id="deposit-list-empty" class="empty-hint" hidden>등록된 예금이 없습니다. "+ 예금 추가"로 시작하세요.</p>
   </section>
 
   <!-- 화면 2: 종목 상세 -->
@@ -255,6 +265,30 @@
     <div class="modal-actions">
       <button id="btn-add-stock-cancel" class="btn btn-secondary">취소</button>
       <button id="btn-add-stock-save" class="btn btn-primary">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 예금 추가/수정 모달 -->
+<div id="modal-deposit" class="modal-overlay" hidden>
+  <div class="modal-box">
+    <h3 id="modal-deposit-title">예금 추가</h3>
+    <div class="field-group">
+      <label for="deposit-account-name">계좌명</label>
+      <input type="text" id="deposit-account-name" placeholder="예: 우리은행 예금" />
+    </div>
+    <div class="field-group">
+      <label for="deposit-amount">예금액</label>
+      <input type="number" id="deposit-amount" inputmode="decimal" step="0.01" min="0" />
+    </div>
+    <div class="field-group">
+      <label for="deposit-currency">통화</label>
+      <input type="text" id="deposit-currency" value="KRW" />
+    </div>
+    <div class="modal-actions">
+      <button id="btn-deposit-delete" class="btn btn-danger" hidden>삭제</button>
+      <button id="btn-deposit-cancel" class="btn btn-secondary">취소</button>
+      <button id="btn-deposit-save" class="btn btn-primary">저장</button>
     </div>
   </div>
 </div>
