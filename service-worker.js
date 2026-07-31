@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stock-portfolio-cache-v5';
+const CACHE_NAME = 'stock-portfolio-cache-v6';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -29,21 +29,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Network-first: always try to fetch the latest version while online, and only
+// fall back to the cached copy when offline. This avoids the class of bug where
+// app.js/index.html/style.css change but service-worker.js itself does not, so
+// the browser never notices an update is available and keeps serving a stale
+// cache indefinitely (cache-first would silently serve old content forever).
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match('./index.html'));
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
   );
 });
