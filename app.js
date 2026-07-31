@@ -1219,7 +1219,11 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+        navigator.serviceWorker.register('service-worker.js').then((reg) => {
+          // Force an immediate check against the server instead of waiting for the
+          // browser's own (up to 24h) update heuristic, so new deploys show up right away.
+          reg.update().catch(() => {});
+        }).catch(() => {});
       });
       // When a newly deployed service worker takes over, reload once so the
       // page (and cached assets) reflect the latest version instead of a stale copy.
