@@ -361,12 +361,29 @@ input:focus {
   display: none;
 }
 
+.total-detail-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.total-detail-item:last-child {
+  border-bottom: none;
+}
+
 .total-detail-row {
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  padding: 4px 0;
   color: var(--text-dim);
+}
+
+.total-detail-eval-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 2px;
 }
 
 .fx-settings {

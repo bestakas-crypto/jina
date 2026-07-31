@@ -596,6 +596,9 @@
     if (showTotalDetail) {
       el.totalDetailRows.innerHTML = '';
       detailRows.forEach((r) => {
+        const item = document.createElement('div');
+        item.className = 'total-detail-item';
+
         const row = document.createElement('div');
         row.className = 'total-detail-row';
         const nameSpan = document.createElement('span');
@@ -605,7 +608,22 @@
         costSpan.textContent = formatMoney(r.cost);
         row.appendChild(nameSpan);
         row.appendChild(costSpan);
-        el.totalDetailRows.appendChild(row);
+        item.appendChild(row);
+
+        const evalRow = document.createElement('div');
+        evalRow.className = 'total-detail-eval-row';
+        if (r.evalValue == null) {
+          evalRow.textContent = '평가금액 현재가 미입력';
+        } else {
+          evalRow.appendChild(document.createTextNode('평가금액 '));
+          const evalSpan = document.createElement('span');
+          evalSpan.className = 'mono ' + pnlClass(r.evalValue - r.cost);
+          evalSpan.textContent = formatMoney(r.evalValue);
+          evalRow.appendChild(evalSpan);
+        }
+        item.appendChild(evalRow);
+
+        el.totalDetailRows.appendChild(item);
       });
       if (detailRows.length === 0) {
         el.totalDetailRows.textContent = '등록된 종목이 없습니다.';
