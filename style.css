@@ -290,6 +290,22 @@ input:focus {
   margin-bottom: 6px;
 }
 
+.total-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.total-line {
+  white-space: nowrap;
+}
+
+.total-eval-line {
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
 .currency-switch {
   display: flex;
   gap: 6px;

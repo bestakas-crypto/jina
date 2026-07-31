@@ -329,10 +329,12 @@
     el.btnAddStock = document.getElementById('btn-add-stock');
     el.btnToggleTotal = document.getElementById('btn-toggle-total');
     el.totalCostSum = document.getElementById('total-cost-sum');
+    el.totalEvalSum = document.getElementById('total-eval-sum');
     el.totalChevron = document.getElementById('total-chevron');
     el.totalSummaryDetail = document.getElementById('total-summary-detail');
     el.totalDetailRows = document.getElementById('total-detail-rows');
     el.totalMissingNote = document.getElementById('total-missing-note');
+    el.totalEvalMissingNote = document.getElementById('total-eval-missing-note');
     el.currencySwitch = document.getElementById('currency-switch');
     el.fxStatus = document.getElementById('fx-status');
     el.fxRateRows = document.getElementById('fx-rate-rows');
@@ -486,9 +488,14 @@
 
     portfolio.forEach((stock) => {
       const derived = computeDerived(stock);
-      detailRows.push({ name: stock.name, cost: derived.costBasis, currency: stock.currency });
-
       const hasPrice = stock.lastPrice != null;
+      detailRows.push({
+        name: stock.name,
+        cost: derived.costBasis,
+        currency: stock.currency,
+        evalValue: hasPrice ? stock.lastPrice * derived.holdingQty : null
+      });
+
       let nextBuy = null;
       let takeProfit = null;
       if (hasPrice) {
@@ -549,16 +556,35 @@
     const displayCurrency = fxRates.displayCurrency;
     let total = 0;
     let missingCount = 0;
+    let totalEval = 0;
+    let evalKnownCount = 0;
+    let evalMissingPrice = 0;
+    let evalMissingFx = 0;
     detailRows.forEach((r) => {
       const converted = convertAmount(r.cost, r.currency, displayCurrency);
-      if (converted == null) { missingCount++; return; }
-      total += converted;
+      if (converted == null) { missingCount++; } else { total += converted; }
+
+      if (r.evalValue == null) {
+        evalMissingPrice++;
+      } else {
+        const convertedEval = convertAmount(r.evalValue, r.currency, displayCurrency);
+        if (convertedEval == null) { evalMissingFx++; } else { totalEval += convertedEval; evalKnownCount++; }
+      }
     });
     el.totalCostSum.textContent = formatMoney(total);
+    el.totalEvalSum.textContent = evalKnownCount > 0 ? formatMoney(totalEval) : '-';
 
     el.totalMissingNote.hidden = missingCount === 0;
     if (missingCount > 0) {
-      el.totalMissingNote.textContent = `환율 정보가 없는 ${missingCount}개 종목은 합계에서 제외되었습니다. 아래에서 환율을 입력해주세요.`;
+      el.totalMissingNote.textContent = `환율 정보가 없는 ${missingCount}개 종목은 매입금액 합계에서 제외되었습니다. 아래에서 환율을 입력해주세요.`;
+    }
+
+    const evalNoteParts = [];
+    if (evalMissingPrice > 0) evalNoteParts.push(`현재가 미입력 ${evalMissingPrice}개`);
+    if (evalMissingFx > 0) evalNoteParts.push(`환율 정보 없음 ${evalMissingFx}개`);
+    el.totalEvalMissingNote.hidden = evalNoteParts.length === 0;
+    if (evalNoteParts.length > 0) {
+      el.totalEvalMissingNote.textContent = `${evalNoteParts.join(', ')} 종목은 평가금액 합계에서 제외되었습니다.`;
     }
 
     document.querySelectorAll('.currency-pill').forEach((btn) => {

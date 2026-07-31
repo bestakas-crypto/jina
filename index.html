@@ -35,7 +35,10 @@
 
     <div class="total-summary-block">
       <button id="btn-toggle-total" class="total-summary-toggle">
-        <span>전체 매입금액 합계: <span id="total-cost-sum" class="mono">-</span></span>
+        <div class="total-lines">
+          <div class="total-line">전체 매입금액 합계: <span id="total-cost-sum" class="mono">-</span></div>
+          <div class="total-line total-eval-line">총 주식평가금액: <span id="total-eval-sum" class="mono">-</span></div>
+        </div>
         <span class="chevron" id="total-chevron">▾</span>
       </button>
       <div class="currency-switch" id="currency-switch">
@@ -44,6 +47,7 @@
         <button type="button" class="currency-pill" data-currency="JPY">JPY</button>
       </div>
       <p class="total-missing-note" id="total-missing-note" hidden></p>
+      <p class="total-missing-note" id="total-eval-missing-note" hidden></p>
     </div>
     <div id="total-summary-detail" class="total-summary-detail" hidden>
       <div id="total-detail-rows"></div>
